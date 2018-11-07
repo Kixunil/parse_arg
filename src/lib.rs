@@ -236,6 +236,120 @@ impl ParseArgFromStr for bool {
     }
 }
 
+/// Error that can occur durin parsing command-line argument.
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum ValueError<E> {
+    /// The value couldn't be parsed because of the invalid format.
+    InvalidValue(E),
+    /// The value to the argument is missing - too few arguments.
+    MissingValue,
+}
+
+/// A type that can be parsed.
+///
+/// Usually `&OsStr` or `OsString`. It's used to automatically pick the right
+/// method if `ParseArg` trait.
+pub trait Arg: Sized + AsRef<OsStr> {
+    /// Parses the argument from `self` using appropriate method.
+    ///
+    /// In case `self` is `OsString` or can be converted to it at no cost
+    /// `ParseArg::parse_owned_arg()` is used. Otherwise `ParseArg::parse_arg()` is used.
+    fn parse<T: ParseArg>(self) -> Result<T, <T as ParseArg>::Error>;
+}
+
+impl Arg for OsString {
+    fn parse<T: ParseArg>(self) -> Result<T, <T as ParseArg>::Error> {
+        T::parse_owned_arg(self)
+    }
+}
+
+impl<'a> Arg for &'a OsStr {
+    fn parse<T: ParseArg>(self) -> Result<T, <T as ParseArg>::Error> {
+        T::parse_arg(self)
+    }
+}
+
+impl<'a, U: 'a + Arg + Copy> Arg for &'a U {
+    fn parse<T: ParseArg>(self) -> Result<T, <T as ParseArg>::Error> {
+        U::parse(*self)
+    }
+}
+
+/// Using this with `std::env::args()` is not a good practice, but it may be
+/// useful for testing.
+impl Arg for String {
+    fn parse<T: ParseArg>(self) -> Result<T, <T as ParseArg>::Error> {
+        T::parse_owned_arg(self.into())
+    }
+}
+
+/// Using this with `std::env::args()` is not a good practice, but it may be
+/// useful for testing.
+impl<'a> Arg for &'a str {
+    fn parse<T: ParseArg>(self) -> Result<T, <T as ParseArg>::Error> {
+        T::parse_arg(self.as_ref())
+    }
+}
+
+/// Checks whether given arg matches the `name` or begins with `name=` and parses it
+/// appropriately.
+///
+/// In case `arg` is equal to name, the next argument is pulled from `next` iterator and parsed using
+/// the most efficient method.
+/// In case `arg` begins with `name=`, it strips the `name=` prefix and parses the rest.
+///
+/// Note: due to a limitation of `std`, Windows implementation is slower than Unix one in `name=`
+/// case. The difference is one-two allocations (depending on parsed type). This probably won't be
+/// noticable for the user.
+pub fn match_arg<T: ParseArg, S: AsRef<OsStr>, I>(name: &str, arg: S, next: I) -> Option<Result<T, ValueError<<T as ParseArg>::Error>>> where I: IntoIterator, I::Item: Arg {
+    if *(arg.as_ref()) == *name {
+        if let Some(arg) = next.into_iter().next() {
+            Some(arg.parse().map_err(ValueError::InvalidValue))
+        } else {
+            Some(Err(ValueError::MissingValue))
+        }
+    } else {
+        check_prefix::<T>(name.as_ref(), arg.as_ref()).map(|result| result.map_err(ValueError::InvalidValue))
+    }
+}
+
+#[cfg(unix)]
+fn check_prefix<T: ParseArg>(name: &OsStr, arg: &OsStr) -> Option<Result<T, <T as ParseArg>::Error>> {
+    use ::std::os::unix::ffi::OsStrExt;
+
+    let mut arg_iter = arg.as_bytes().iter();
+    if name.as_bytes().iter().zip(&mut arg_iter).all(|(a, b)| *a == *b) {
+        if arg_iter.next() == Some(&b'=') {
+            let arg = OsStr::from_bytes(arg_iter.as_slice());
+            Some(T::parse_arg(arg))
+        } else {
+            None
+        }
+    } else {
+        None
+    }
+}
+
+#[cfg(windows)]
+fn check_prefix<T: ParseArg>(name: &OsStr, arg: &OsStr) -> Option<Result<T, <T as ParseArg>::Error>> {
+    use ::std::os::windows::ffi::{OsStrExt, OsStringExt};
+
+    let mut arg_iter = arg.encode_wide();
+    if name.encode_wide().zip(&mut arg_iter).all(|(a, b)| a == b) {
+        if arg_iter.next() == Some(u16::from(b'=')) {
+            // If you don't like these two allocations, go annoy Rust libs team
+            // with RFC to implement matching and slicing on `OsStr`...
+            let arg = arg_iter.collect::<Vec<_>>();
+            let arg = OsString::from_wide(&arg);
+            Some(T::parse_owned_arg(arg))
+        } else {
+            None
+        }
+    } else {
+        None
+    }
+}
+
 #[cfg(test)]
 mod tests {
     #[test]
@@ -285,5 +399,24 @@ mod tests {
         assert_eq!(val, 42.42);
         let val: f64 = ParseArg::parse_arg("42.42".as_ref()).unwrap();
         assert_eq!(val, 42.42);
+    }
+
+    #[test]
+    fn match_args() {
+        assert_eq!(::match_arg::<u32, _, _>("--foo", "--bar", std::iter::empty::<&str>()), None);
+        assert_eq!(::match_arg::<u32, _, _>("--foo", "--bar", &["--foo"]), None);
+        assert_eq!(::match_arg::<u32, _, _>("--foo", "--foo", std::iter::empty::<&str>()), Some(Err(::ValueError::MissingValue)));
+        assert_eq!(::match_arg::<u32, _, _>("--foo", "--foo", &["--foo"]), Some("--foo".parse::<u32>().map_err(::ParseArgError::FromStr).map_err(::ValueError::InvalidValue)));
+        assert_eq!(::match_arg::<u32, _, _>("--foo", "--foo", &["42"]), Some(Ok(42)));
+
+
+        assert_eq!(::match_arg::<u32, _, _>("--foo", "--bar=", std::iter::empty::<&str>()), None);
+        assert_eq!(::match_arg::<u32, _, _>("--foo", "--bar=", &["--foo"]), None);
+        assert_eq!(::match_arg::<u32, _, _>("--foo", "--foo=", std::iter::empty::<&str>()), Some("".parse::<u32>().map_err(::ParseArgError::FromStr).map_err(::ValueError::InvalidValue)));
+        let mut iter = ["--foo"].iter();
+        assert_eq!(::match_arg::<u32, _, _>("--foo", "--foo=--foo", &mut iter), Some("--foo".parse::<u32>().map_err(::ParseArgError::FromStr).map_err(::ValueError::InvalidValue)));
+        let mut iter = ["47"].iter();
+        assert_eq!(::match_arg::<u32, _, _>("--foo", "--foo=42", &mut iter), Some(Ok(42)));
+        assert_eq!(iter.next(), Some(&"47"));
     }
 }
