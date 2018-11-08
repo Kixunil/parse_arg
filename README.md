@@ -20,6 +20,10 @@ Further, the crate provides `ParseArgFromStr` trait, which causes any type imple
 auto-implement `ParseArg` trait. This is handy when implementing `ParseArg` for types that
 already have `FromStr` implemented, so that boilerplate is reduced.
 
+Since matching both `--foo VAL` and `--foo=VAL` arguments is common and it's not an easy task to
+implement on top of `OsStr`, due to limitation of `std`, this crate also provides a function to
+match and parse such arguments.
+
 Contibutions
 ------------
 
