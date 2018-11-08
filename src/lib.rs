@@ -245,6 +245,18 @@ pub enum ValueError<E> {
     MissingValue,
 }
 
+impl<E> ValueError<E> {
+    /// Applies function to the contained error (if any), or returns the provided default (if not).
+    ///
+    /// This is practically the same thing what `Option<E>` would do.
+    pub fn map_or<R, F: FnOnce(E) -> R>(self, default: R, f: F) -> R {
+        match self {
+            ValueError::InvalidValue(error) => f(error),
+            ValueError::MissingValue => default,
+        }
+    }
+}
+
 /// A type that can be parsed.
 ///
 /// Usually `&OsStr` or `OsString`. It's used to automatically pick the right
