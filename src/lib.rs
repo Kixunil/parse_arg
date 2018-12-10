@@ -218,6 +218,12 @@ impl ParseArgFromStr for std::net::Ipv6Addr {
     }
 }
 
+impl ParseArgFromStr for std::net::SocketAddr {
+    fn describe_type<W: fmt::Write>(mut writer: W) -> fmt::Result {
+        write!(writer, "a version 4 or 6 network socket address (IP:port)")
+    }
+}
+
 impl ParseArgFromStr for std::net::SocketAddrV4 {
     fn describe_type<W: fmt::Write>(mut writer: W) -> fmt::Result {
         write!(writer, "a version 4 socket address (IP:port)")

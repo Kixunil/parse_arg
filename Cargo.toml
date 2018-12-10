@@ -1,6 +1,6 @@
 [package]
 name = "parse_arg"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["Martin Habovstiak <martin.habovstiak@gmail.com>"]
 description = "Traits and implementations for parsing command-line arguments."
 homepage = "https://github.com/Kixunil/parse_arg"
