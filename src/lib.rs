@@ -331,6 +331,163 @@ pub fn match_arg<T: ParseArg, S: AsRef<OsStr>, I>(name: &str, arg: S, next: I) -
     }
 }
 
+/// Creates an iterator of short arguments if the input is in the form `-abc`.
+///
+/// This is a helper for parsing short arguments in the same way mny GNU commands support.
+/// It enables putting several flags into a single argument and enables the last one to be
+/// a short parameter with a walue and the value might be either concatenated or put as the
+/// next argument.
+///
+/// In order to use this, one would call this function and if it returned `Some(iter)`, then
+/// iterate `iter` and match returned chars. If a char representing a parameter with value
+/// is returned from `next`, `.parse_remaining()` method should be called on the iterator.
+/// It will attempt to parse the value from remaining part, if present. If there's none, it'll
+/// attempt to parse it from the following argument pulled from the parameter.
+///
+/// This is how `configure_me` uses this feature, but you can use it without `configure_me`.
+#[inline]
+pub fn iter_short<'a, T>(arg: &'a T) -> Option<ShortIter<'a>> where T: AsRef<OsStr> + ?Sized {
+    iter_short_internal(arg.as_ref())
+}
+
+#[cfg(unix)]
+fn iter_short_internal<'a>(arg: &'a OsStr) -> Option<ShortIter<'a>> {
+    use ::std::os::unix::ffi::OsStrExt;
+
+    let slice = arg.as_bytes();
+    // Needed to avoid panic and this can't be an option anyway
+    if slice.len() < 2 {
+        return None;
+    }
+
+    // Check for things beginning with --
+    if slice[1] == b'-' {
+        return None;
+    }
+
+    let mut arg_iter = slice.iter();
+    if *arg_iter.next()? == b'-' {
+        Some(ShortIter {
+            iter: arg_iter,
+            _force_private: (),
+        })
+    } else {
+        None
+    }
+}
+
+#[cfg(windows)]
+fn iter_short_internal<'a>(arg: &'a OsStr) -> Option<ShortIter<'a>> {
+    use ::std::os::windows::ffi::OsStrExt;
+
+    let mut iter = arg.encode_wide();
+
+    if iter.next()? == u16::from(b'-') {
+        let mut iter = iter.peekable();
+        if *iter.peek()? != u16::from(b'-') {
+            Some(ShortIter {
+                iter,
+                _force_private: (),
+            })
+        } else {
+            None
+        }
+    } else {
+        None
+    }
+}
+
+/// An iterator of short options.
+///
+/// See the documentation for `iter_short` for more details.
+pub struct ShortIter<'a> {
+    #[cfg(unix)]
+    iter: std::slice::Iter<'a, u8>,
+    #[cfg(windows)]
+    iter: std::iter::Peekable<std::os::windows::ffi::EncodeWide<'a>>,
+    // In case the platform is neither unix nor windows, we want to keep this private
+    _force_private: (),
+}
+
+impl<'a> Iterator for ShortIter<'a> {
+    type Item = char;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.next_impl()
+    }
+}
+
+impl<'a> ShortIter<'a> {
+    /// Parses the remaining string of the argument.
+    ///
+    /// This is used in case of `-xVAL` style arguments. If `VAL` is missing, it is pulled from
+    /// `iter`. If that's missing too, Err(ValueError::MissingValue) is returned.
+    ///
+    /// See the doc of `iter_short()` for more context.
+    ///
+    /// While this method could take `&self`, consuming expresses that the iteration should end.
+    pub fn parse_remaining<T: ParseArg, I>(self, iter: I) -> Result<T, ValueError<T::Error>> where I: IntoIterator, I::Item: Arg {
+        self.parse_remaining_internal(iter)
+    }
+
+    #[cfg(unix)]
+    fn parse_remaining_internal<T: ParseArg, I>(self, iter: I) -> Result<T, ValueError<T::Error>> where I: IntoIterator, I::Item: Arg {
+        use ::std::os::unix::ffi::OsStrExt;
+
+        let slice = self.iter.as_slice();
+        if slice.len() == 0 {
+            return iter
+                .into_iter()
+                .next()
+                .map_or(Err(ValueError::MissingValue), |val| val.parse().map_err(ValueError::InvalidValue));
+        }
+
+        OsStr::from_bytes(slice)
+            .parse()
+            .map_err(ValueError::InvalidValue)
+    }
+
+    #[cfg(windows)]
+    fn parse_remaining_internal<T: ParseArg, I>(mut self, iter: I) -> Result<T, ValueError<T::Error>> where I: IntoIterator, I::Item: Arg {
+        use ::std::os::windows::ffi::OsStringExt;
+
+        if self.iter.peek().is_none() {
+            return iter
+                .into_iter()
+                .next()
+                .map_or(Err(ValueError::MissingValue), |val| val.parse().map_err(ValueError::InvalidValue));
+        }
+
+        let arg = self.iter.collect::<Vec<_>>();
+        let arg = OsString::from_wide(&arg);
+        arg
+            .parse()
+            .map_err(ValueError::InvalidValue)
+    }
+
+    #[cfg(unix)]
+    fn next_impl(&mut self) -> Option<<Self as Iterator>::Item> {
+        self.iter.next().map(|&c| c.into())
+    }
+
+    #[cfg(windows)]
+    fn next_impl(&mut self) -> Option<<Self as Iterator>::Item> {
+        self.iter.next().and_then(|c| {
+            // We assume all options are ASCII chars, which should be decoded as exactly one char.
+            // If they're not, we stop iteration.
+            //
+            // TODO: might be better to return error instead.
+            let mut decoder = std::char::decode_utf16(std::iter::once(c));
+            let result = decoder.next()?.ok()?;
+            if decoder.next().is_none() {
+                Some(result)
+            } else {
+                None
+            }
+        })
+    }
+}
+
 #[cfg(unix)]
 fn check_prefix<T: ParseArg>(name: &OsStr, arg: &OsStr) -> Option<Result<T, <T as ParseArg>::Error>> {
     use ::std::os::unix::ffi::OsStrExt;
@@ -436,5 +593,64 @@ mod tests {
         let mut iter = ["47"].iter();
         assert_eq!(::match_arg::<u32, _, _>("--foo", "--foo=42", &mut iter), Some(Ok(42)));
         assert_eq!(iter.next(), Some(&"47"));
+    }
+
+    #[test]
+    fn iter_short() {
+        use ::ValueError;
+
+        assert!(::iter_short("").is_none());
+        assert!(::iter_short("-").is_none());
+        assert!(::iter_short("--").is_none());
+        assert!(::iter_short("--a").is_none());
+        assert!(::iter_short("--ab").is_none());
+        assert_eq!(::iter_short("-a").expect("Iter").next().expect("next"), 'a');
+        let mut iter = ::iter_short("-ab").expect("Iter");
+        assert_eq!(iter.next().expect("next"), 'a');
+        assert_eq!(iter.next().expect("next"), 'b');
+        assert!(iter.next().is_none());
+
+        let mut iter = ::iter_short("-abcde").expect("Iter");
+        assert_eq!(iter.next().expect("next"), 'a');
+        assert_eq!(iter.next().expect("next"), 'b');
+        assert_eq!(iter.next().expect("next"), 'c');
+        assert_eq!(iter.next().expect("next"), 'd');
+        assert_eq!(iter.next().expect("next"), 'e');
+        assert!(iter.next().is_none());
+
+        let mut iter = ::iter_short("-a").expect("Iter");
+        assert_eq!(iter.next().expect("next"), 'a');
+        assert_eq!(iter.parse_remaining::<u32, _>(::std::iter::empty::<&str>()), Err(ValueError::MissingValue));
+
+        let mut iter = ::iter_short("-a").expect("Iter");
+        assert_eq!(iter.next().expect("next"), 'a');
+        assert_eq!(iter.parse_remaining::<u32, _>(&["42"]).expect("Failed to parse"), 42);
+
+        let mut iter = ::iter_short("-a42").expect("Iter");
+        assert_eq!(iter.next().expect("next"), 'a');
+        assert_eq!(iter.parse_remaining::<u32, _>(::std::iter::empty::<&str>()).expect("Failed to parse"), 42);
+
+        let mut iter = ::iter_short("-a42").expect("Iter");
+        assert_eq!(iter.next().expect("next"), 'a');
+        assert_eq!(iter.parse_remaining::<u32, _>(&["24"]).expect("Failed to parse"), 42);
+
+        let mut iter = ::iter_short("-ab42").expect("Iter");
+        assert_eq!(iter.next().expect("next"), 'a');
+        assert_eq!(iter.next().expect("next"), 'b');
+        assert_eq!(iter.parse_remaining::<u32, _>(::std::iter::empty::<&str>()).expect("Failed to parse"), 42);
+
+        let mut iter = ::iter_short("-ab42").expect("Iter");
+        assert_eq!(iter.next().expect("next"), 'a');
+        assert_eq!(iter.next().expect("next"), 'b');
+        assert_eq!(iter.parse_remaining::<u32, _>(&["24"]).expect("Failed to parse"), 42);
+
+        let mut iter = ::iter_short("-abc").expect("Iter");
+        assert_eq!(iter.next().expect("next"), 'a');
+        assert_eq!(iter.next().expect("next"), 'b');
+        match iter.parse_remaining::<u32, _>(&["24"]) {
+            Ok(val) => panic!("Parsed unexpected vlaue: {}, parsing should've failed", val),
+            Err(ValueError::MissingValue) => panic!("Value shouldn't be missing"),
+            Err(ValueError::InvalidValue(_)) => (),
+        }
     }
 }
