@@ -24,6 +24,10 @@ Since matching both `--foo VAL` and `--foo=VAL` arguments is common and it's not
 implement on top of `OsStr`, due to limitation of `std`, this crate also provides a function to
 match and parse such arguments.
 
+Further, since many programs support `-xVAL` style parameters and short switches grouped into a
+single argument, which isn't easy to achieve using `OsStr` either, this crate provides a helper
+for this too.
+
 Contibutions
 ------------
 
