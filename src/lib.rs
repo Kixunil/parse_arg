@@ -206,6 +206,12 @@ impl_unsigned! { u8, u16, u32, u64, u128, usize }
 impl_signed! { i8, i16, i32, i64, i128, isize }
 impl_float! { f32, f64 }
 
+impl ParseArgFromStr for std::net::IpAddr {
+    fn describe_type<W: fmt::Write>(mut writer: W) -> fmt::Result {
+        write!(writer, "an IP address (either version 4 or 6)")
+    }
+}
+
 impl ParseArgFromStr for std::net::Ipv4Addr {
     fn describe_type<W: fmt::Write>(mut writer: W) -> fmt::Result {
         write!(writer, "a version 4 IP address")
