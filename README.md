@@ -38,18 +38,6 @@ Further, since many programs support `-xVAL` style parameters and short switches
 single argument, which isn't easy to achieve using `OsStr` either, this crate provides a helper
 for this too.
 
-Contibutions
-------------
-
-I will merge new implementations liberally, provided these conditions are met:
-
-* The type is either in `std` or in another crate which is added as an *optional* dependency.
-* The description of the type is gramatically correct, readable explanation of the type, that
-  can be appended to the string "The input must be " without sounding unnatural.
-* The user must be able to know how to formt the input based on the description without any
-  googling. In case of doubt provide more precise description in parentheses.
-* Your contribution is licensed under MIT or MITNFA license.
-
 MSRV
 ----
 
