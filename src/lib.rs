@@ -20,10 +20,10 @@ use std::ffi::{OsStr, OsString};
 
 /// Defines an interface for types that can be created by parsing command-line argument.
 ///
-/// This trait is similar to `FromStr`. See the crate documentation for list of importatn
+/// This trait is similar to `FromStr`. See the crate documentation for list of important
 /// differences.
 pub trait ParseArg: Sized {
-    /// Type returned in `Err` variant of `Result` when parsing fails.
+    /// Type returned in the `Err` variant of `Result` when parsing fails.
     type Error: fmt::Display;
 
     /// Parses the argument.
@@ -71,7 +71,7 @@ impl<E: fmt::Display> fmt::Display for ParseArgError<E> {
     }
 }
 
-/// `Debug` is implemented via `Display` in order to make using `?` operator in main nice.
+/// `Debug` is implemented via `Display` in order to make using `?` operator in `main()` nice.
 impl<E: fmt::Display> fmt::Debug for ParseArgError<E> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         fmt::Display::fmt(self, f)
@@ -99,7 +99,7 @@ pub trait ParseArgFromStr: FromStr where <Self as FromStr>::Err: fmt::Display {
     /// For full information, read the documentation for `ParseArgs::describe_type`.
     ///
     /// `ParseArgs::describe_type` is delegated to this method when `ParseArgFromStr` is
-    /// implmented.
+    /// implemented.
     fn describe_type<W: fmt::Write>(writer: W) -> fmt::Result;
 }
 
@@ -272,7 +272,7 @@ impl<E> ValueError<E> {
 /// A type that can be parsed.
 ///
 /// Usually `&OsStr` or `OsString`. It's used to automatically pick the right
-/// method if `ParseArg` trait.
+/// method of `ParseArg` trait.
 pub trait Arg: Sized + AsRef<OsStr> {
     /// Parses the argument from `self` using appropriate method.
     ///
@@ -339,12 +339,12 @@ pub fn match_arg<T: ParseArg, S: AsRef<OsStr>, I>(name: &str, arg: S, next: I) -
 
 /// Creates an iterator of short arguments if the input is in the form `-abc`.
 ///
-/// This is a helper for parsing short arguments in the same way mny GNU commands support.
+/// This is a helper for parsing short arguments in the same way many GNU commands support.
 /// It enables putting several flags into a single argument and enables the last one to be
-/// a short parameter with a walue and the value might be either concatenated or put as the
+/// a short parameter with a value and the value might be either concatenated or put as the
 /// next argument.
 ///
-/// In order to use this, one would call this function and if it returned `Some(iter)`, then
+/// In order to use this, one would call this function and, if it returned `Some(iter)`, then
 /// iterate `iter` and match returned chars. If a char representing a parameter with value
 /// is returned from `next`, `.parse_remaining()` method should be called on the iterator.
 /// It will attempt to parse the value from remaining part, if present. If there's none, it'll
