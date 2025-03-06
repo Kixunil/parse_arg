@@ -1,6 +1,6 @@
 [package]
 name = "parse_arg"
-version = "0.1.5"
+version = "1.0.0"
 authors = ["Martin Habovstiak <martin.habovstiak@gmail.com>"]
 description = "Traits and implementations for parsing command-line arguments."
 repository = "https://github.com/Kixunil/parse_arg"
@@ -8,4 +8,4 @@ readme = "README.md"
 keywords = ["arguments", "parsing", "string", "osstring", "osstr"]
 categories = ["command-line-interface", "parsing", "rust-patterns"]
 license = "MITNFA"
-maintenance = { status = "passively-maintained" }
+maintenance = { status = "as-is" }

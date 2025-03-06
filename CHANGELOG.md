@@ -1,6 +1,6 @@
 # Significant changes to the crate
 
-## Unreleased
+## 1.0.0
 
 * Deleted the helper functions to keep the crate focused
 
