@@ -209,6 +209,7 @@ pub enum ParseArgError<E> {
 impl<E: fmt::Display> fmt::Display for ParseArgError<E> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
+            // We flatten the error since we don't have anything to say about it
             ParseArgError::FromStr(err) => fmt::Display::fmt(err, f),
             ParseArgError::InvalidUtf8 => write!(f, "invalid UTF-8 encoding"),
         }
@@ -225,6 +226,16 @@ impl<E: fmt::Display> fmt::Debug for ParseArgError<E> {
 impl<E: fmt::Display> From<E> for ParseArgError<E> {
     fn from(error: E) -> Self {
         ParseArgError::FromStr(error)
+    }
+}
+
+impl<E: std::error::Error> std::error::Error for ParseArgError<E> {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            // We flatten the error since we don't have anything to say about it
+            ParseArgError::FromStr(error) => error.source(),
+            ParseArgError::InvalidUtf8 => None,
+        }
     }
 }
 
