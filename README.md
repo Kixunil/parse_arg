@@ -30,14 +30,6 @@ librariess that use this crate and use a CLI parses implementation crate that us
 Currently the only known implementation is [`configure_me`](https://docs.rs/configure_me) which
 is also capable of parsing configuration files.
 
-Since matching both `--foo VAL` and `--foo=VAL` arguments is common and it's not an easy task to
-implement on top of `OsStr`, due to limitation of `std`, this crate also provides a function to
-match and parse such arguments.
-
-Further, since many programs support `-xVAL` style parameters and short switches grouped into a
-single argument, which isn't easy to achieve using `OsStr` either, this crate provides a helper
-for this too.
-
 MSRV
 ----
 

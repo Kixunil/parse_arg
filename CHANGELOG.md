@@ -1,5 +1,9 @@
 # Significant changes to the crate
 
+## Unreleased
+
+* Deleted the helper functions to keep the crate focused
+
 ## 0.1.5
 
 * Various documentation and internal cleanups
