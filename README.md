@@ -38,6 +38,14 @@ Further, since many programs support `-xVAL` style parameters and short switches
 single argument, which isn't easy to achieve using `OsStr` either, this crate provides a helper
 for this too.
 
+Maintenance status
+------------------
+
+This crate is considered done. There shouldn't be any updates to it required, so there probably
+won't be any changes from now. I will accept PRs that fix problems but I don't expect to actively
+search for things to improve. The crate has only two traits and one enum, so this should be
+completely fine to use even if it becomes old.
+
 MSRV
 ----
 

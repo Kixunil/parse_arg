@@ -1,5 +1,9 @@
 # Significant changes to the crate
 
+## 0.1.6
+
+* Semver trick to depend on 1.0.0
+
 ## 0.1.5
 
 * Various documentation and internal cleanups
