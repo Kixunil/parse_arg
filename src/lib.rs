@@ -51,6 +51,135 @@ pub trait ParseArg: Sized {
     }
 }
 
+impl<T: ParseArg> ParseArg for std::cell::Cell<T> {
+    type Error = T::Error;
+
+    fn parse_arg(arg: &OsStr) -> Result<Self, Self::Error> {
+        T::parse_arg(arg).map(Into::into)
+    }
+
+    fn describe_type<W: fmt::Write>(writer: W) -> fmt::Result {
+        T::describe_type(writer)
+    }
+
+    fn parse_owned_arg(arg: OsString) -> Result<Self, Self::Error> {
+        T::parse_owned_arg(arg).map(Into::into)
+    }
+}
+
+impl<T: ParseArg> ParseArg for std::cell::RefCell<T> {
+    type Error = T::Error;
+
+    fn parse_arg(arg: &OsStr) -> Result<Self, Self::Error> {
+        T::parse_arg(arg).map(Into::into)
+    }
+
+    fn describe_type<W: fmt::Write>(writer: W) -> fmt::Result {
+        T::describe_type(writer)
+    }
+
+    fn parse_owned_arg(arg: OsString) -> Result<Self, Self::Error> {
+        T::parse_owned_arg(arg).map(Into::into)
+    }
+}
+
+impl<T: ParseArg> ParseArg for std::cell::UnsafeCell<T> {
+    type Error = T::Error;
+
+    fn parse_arg(arg: &OsStr) -> Result<Self, Self::Error> {
+        T::parse_arg(arg).map(Into::into)
+    }
+
+    fn describe_type<W: fmt::Write>(writer: W) -> fmt::Result {
+        T::describe_type(writer)
+    }
+
+    fn parse_owned_arg(arg: OsString) -> Result<Self, Self::Error> {
+        T::parse_owned_arg(arg).map(Into::into)
+    }
+}
+
+impl<T: ParseArg> ParseArg for std::sync::Mutex<T> {
+    type Error = T::Error;
+
+    fn parse_arg(arg: &OsStr) -> Result<Self, Self::Error> {
+        T::parse_arg(arg).map(Into::into)
+    }
+
+    fn describe_type<W: fmt::Write>(writer: W) -> fmt::Result {
+        T::describe_type(writer)
+    }
+
+    fn parse_owned_arg(arg: OsString) -> Result<Self, Self::Error> {
+        T::parse_owned_arg(arg).map(Into::into)
+    }
+}
+
+impl<T: ParseArg> ParseArg for std::sync::RwLock<T> {
+    type Error = T::Error;
+
+    fn parse_arg(arg: &OsStr) -> Result<Self, Self::Error> {
+        T::parse_arg(arg).map(Into::into)
+    }
+
+    fn describe_type<W: fmt::Write>(writer: W) -> fmt::Result {
+        T::describe_type(writer)
+    }
+
+    fn parse_owned_arg(arg: OsString) -> Result<Self, Self::Error> {
+        T::parse_owned_arg(arg).map(Into::into)
+    }
+}
+
+impl<T: ParseArg> ParseArg for std::mem::ManuallyDrop<T> {
+    type Error = T::Error;
+
+    fn parse_arg(arg: &OsStr) -> Result<Self, Self::Error> {
+        T::parse_arg(arg).map(std::mem::ManuallyDrop::new)
+    }
+
+    fn describe_type<W: fmt::Write>(writer: W) -> fmt::Result {
+        T::describe_type(writer)
+    }
+
+    fn parse_owned_arg(arg: OsString) -> Result<Self, Self::Error> {
+        T::parse_owned_arg(arg).map(std::mem::ManuallyDrop::new)
+    }
+}
+
+impl<T: ParseArg> ParseArg for std::rc::Rc<T> {
+    type Error = T::Error;
+
+    fn parse_arg(arg: &OsStr) -> Result<Self, Self::Error> {
+        T::parse_arg(arg).map(Into::into)
+    }
+
+    fn describe_type<W: fmt::Write>(writer: W) -> fmt::Result {
+        T::describe_type(writer)
+    }
+
+    fn parse_owned_arg(arg: OsString) -> Result<Self, Self::Error> {
+        T::parse_owned_arg(arg).map(Into::into)
+    }
+}
+
+#[cfg(target_has_atomic = "ptr")]
+impl<T: ParseArg> ParseArg for std::sync::Arc<T> {
+    type Error = T::Error;
+
+    fn parse_arg(arg: &OsStr) -> Result<Self, Self::Error> {
+        T::parse_arg(arg).map(Into::into)
+    }
+
+    fn describe_type<W: fmt::Write>(writer: W) -> fmt::Result {
+        T::describe_type(writer)
+    }
+
+    fn parse_owned_arg(arg: OsString) -> Result<Self, Self::Error> {
+        T::parse_owned_arg(arg).map(Into::into)
+    }
+}
+
 /// Possible error when parsing certain arguments.
 ///
 /// This is used for bridging implementations of `FromStr`, because they require UTF-8 encoded inputs.
@@ -166,12 +295,113 @@ impl ParseArg for std::path::PathBuf {
     }
 }
 
+macro_rules! impl_unsized {
+    ($($type:ty),*) => {
+        $(
+            /// This implementation simply parses the "fat" owned type and converts it into the box.
+            impl ParseArg for Box<$type> {
+                type Error = <<$type as ToOwned>::Owned as ParseArg>::Error;
+
+                fn parse_arg(arg: &OsStr) -> Result<Self, Self::Error> {
+                    <<$type as ToOwned>::Owned as ParseArg>::parse_arg(arg).map(Into::into)
+                }
+
+                fn describe_type<W: fmt::Write>(writer: W) -> fmt::Result {
+                    <<$type as ToOwned>::Owned as ParseArg>::describe_type(writer)
+                }
+
+                fn parse_owned_arg(arg: OsString) -> Result<Self, Self::Error> {
+                    <<$type as ToOwned>::Owned as ParseArg>::parse_owned_arg(arg).map(Into::into)
+                }
+            }
+
+            impl ParseArg for std::borrow::Cow<'static, $type> {
+                type Error = <<$type as ToOwned>::Owned as ParseArg>::Error;
+
+                fn parse_arg(arg: &OsStr) -> Result<Self, Self::Error> {
+                    <<$type as ToOwned>::Owned as ParseArg>::parse_arg(arg).map(Into::into)
+                }
+
+                fn describe_type<W: fmt::Write>(writer: W) -> fmt::Result {
+                    <<$type as ToOwned>::Owned as ParseArg>::describe_type(writer)
+                }
+
+                fn parse_owned_arg(arg: OsString) -> Result<Self, Self::Error> {
+                    <<$type as ToOwned>::Owned as ParseArg>::parse_owned_arg(arg).map(Into::into)
+                }
+            }
+        )*
+    }
+}
+
+impl_unsized!(str, std::path::Path, std::ffi::OsStr);
+
+macro_rules! impl_trivial_rc {
+    ($($type:ty),*) => {
+        $(
+            impl ParseArg for std::rc::Rc<$type> {
+                type Error = std::convert::Infallible;
+
+                fn parse_arg(arg: &OsStr) -> Result<Self, Self::Error> {
+                    let arg: &$type = arg.as_ref();
+                    Ok(arg.into())
+                }
+
+                fn describe_type<W: fmt::Write>(writer: W) -> fmt::Result {
+                    <<$type as ToOwned>::Owned as ParseArg>::describe_type(writer)
+                }
+            }
+
+            #[cfg(target_has_atomic = "ptr")]
+            impl ParseArg for std::sync::Arc<$type> {
+                type Error = std::convert::Infallible;
+
+                fn parse_arg(arg: &OsStr) -> Result<Self, Self::Error> {
+                    let arg: &$type = arg.as_ref();
+                    Ok(arg.into())
+                }
+
+                fn describe_type<W: fmt::Write>(writer: W) -> fmt::Result {
+                    <<$type as ToOwned>::Owned as ParseArg>::describe_type(writer)
+                }
+            }
+        )*
+    }
+}
+
+impl_trivial_rc!(std::path::Path, std::ffi::OsStr);
+
+impl ParseArg for std::rc::Rc<str> {
+    type Error = ParseArgError<std::string::ParseError>;
+
+    fn parse_arg(arg: &OsStr) -> Result<Self, Self::Error> {
+        arg.to_str().map(Into::into).ok_or(ParseArgError::InvalidUtf8)
+    }
+
+    fn describe_type<W: fmt::Write>(writer: W) -> fmt::Result {
+        String::describe_type(writer)
+    }
+}
+
+#[cfg(target_has_atomic = "ptr")]
+impl ParseArg for std::sync::Arc<str> {
+    type Error = ParseArgError<std::string::ParseError>;
+
+    fn parse_arg(arg: &OsStr) -> Result<Self, Self::Error> {
+        arg.to_str().map(Into::into).ok_or(ParseArgError::InvalidUtf8)
+    }
+
+    fn describe_type<W: fmt::Write>(writer: W) -> fmt::Result {
+        String::describe_type(writer)
+    }
+}
+
 macro_rules! impl_unsigned {
     ($($type:ty),*) => {
         $(
             impl ParseArgFromStr for $type {
                 fn describe_type<W: fmt::Write>(mut writer: W) -> fmt::Result {
-                    write!(writer, "a non-negative integer up to {}", <$type>::max_value())
+                    write!(writer, "a non-negative integer up to {}", <$type>::MAX)
                 }
             }
         )*
@@ -183,7 +413,99 @@ macro_rules! impl_signed {
         $(
             impl ParseArgFromStr for $type {
                 fn describe_type<W: fmt::Write>(mut writer: W) -> fmt::Result {
-                    write!(writer, "an integer at least {} and up to {}", <$type>::min_value(), <$type>::max_value())
+                    write!(writer, "an integer at least {} and up to {}", <$type>::MIN, <$type>::MAX)
+                }
+            }
+        )*
+    }
+}
+
+const fn max_from_len(len: usize) -> u128 {
+    assert!(len <= 16);
+
+    let mut bytes = [0; 16];
+    let mut i = 0;
+    while i < len {
+        bytes[i] = 0xFF;
+        i += 1;
+    }
+    u128::from_le_bytes(bytes)
+}
+
+const fn max_from_len_signed(len: usize) -> i128 {
+    (max_from_len(len) / 2) as i128
+}
+
+const fn min_from_len_signed(len: usize) -> i128 {
+    -((max_from_len(len) / 2) as i128) - 1
+}
+
+macro_rules! impl_non_zero_unsigned {
+    ($($type:ident),*) => {
+        $(
+            impl ParseArgFromStr for std::num::$type {
+                fn describe_type<W: fmt::Write>(mut writer: W) -> fmt::Result {
+                    const MAX: u128 = max_from_len(std::mem::size_of::<std::num::$type>());
+                    write!(writer, "a positive (non-zero) integer up to {}", MAX)
+                }
+            }
+        )*
+    }
+}
+
+macro_rules! impl_non_zero_signed {
+    ($($type:ident),*) => {
+        $(
+            impl ParseArgFromStr for std::num::$type {
+                fn describe_type<W: fmt::Write>(mut writer: W) -> fmt::Result {
+                    const MAX: i128 = max_from_len_signed(std::mem::size_of::<std::num::$type>());
+                    const MIN: i128 = min_from_len_signed(std::mem::size_of::<std::num::$type>());
+                    write!(writer, "a non-zero integer at least {} and up to {}", MIN, MAX)
+                }
+            }
+        )*
+    }
+}
+
+fn parse_and_convert<Intermediate: FromStr, Res, F: FnOnce(Intermediate) -> Res>(s: &str, f: F) -> Result<Res, Intermediate::Err> {
+    s.parse().map(f)
+}
+
+macro_rules! impl_atomic_unsigned {
+    ($($type:ident => $atomic_kind:literal),*) => {
+        $(
+            #[cfg(target_has_atomic = $atomic_kind)]
+            impl ParseArg for std::sync::atomic::$type {
+                type Error = ParseArgError<std::num::ParseIntError>;
+
+                fn parse_arg(arg: &OsStr) -> Result<Self, Self::Error> {
+                    parse_and_convert(arg.to_str().ok_or(ParseArgError::InvalidUtf8)?, std::sync::atomic::$type::new).map_err(Into::into)
+                }
+
+                fn describe_type<W: fmt::Write>(mut writer: W) -> fmt::Result {
+                    const MAX: u128 = max_from_len(std::mem::size_of::<std::sync::atomic::$type>());
+                    write!(writer, "a non-negative integer up to {}", MAX)
+                }
+            }
+        )*
+    }
+}
+
+macro_rules! impl_atomic_signed {
+    ($($type:ident => $atomic_kind:literal),*) => {
+        $(
+            #[cfg(target_has_atomic = $atomic_kind)]
+            impl ParseArg for std::sync::atomic::$type {
+                type Error = ParseArgError<std::num::ParseIntError>;
+
+                fn parse_arg(arg: &OsStr) -> Result<Self, Self::Error> {
+                    parse_and_convert(arg.to_str().ok_or(ParseArgError::InvalidUtf8)?, std::sync::atomic::$type::new).map_err(Into::into)
+                }
+
+                fn describe_type<W: fmt::Write>(mut writer: W) -> fmt::Result {
+                    const MAX: i128 = max_from_len_signed(std::mem::size_of::<std::sync::atomic::$type>());
+                    const MIN: i128 = min_from_len_signed(std::mem::size_of::<std::sync::atomic::$type>());
+                    write!(writer, "an integer at least {} and up to {}", MIN, MAX)
                 }
             }
         )*
@@ -204,6 +526,10 @@ macro_rules! impl_float {
 
 impl_unsigned! { u8, u16, u32, u64, u128, usize }
 impl_signed! { i8, i16, i32, i64, i128, isize }
+impl_non_zero_unsigned! { NonZeroU8, NonZeroU16, NonZeroU32, NonZeroU64, NonZeroU128, NonZeroUsize }
+impl_non_zero_signed! { NonZeroI8, NonZeroI16, NonZeroI32, NonZeroI64, NonZeroI128, NonZeroIsize }
+impl_atomic_unsigned! { AtomicU8 => "8", AtomicU16 => "16", AtomicU32 => "32", AtomicU64 => "64", AtomicU128 => "128", AtomicUsize => "ptr" }
+impl_atomic_signed! { AtomicI8 => "8", AtomicI16 => "16", AtomicI32 => "32", AtomicI64 => "64", AtomicI128 => "128", AtomicIsize => "ptr" }
 impl_float! { f32, f64 }
 
 impl ParseArgFromStr for std::net::IpAddr {
@@ -245,6 +571,12 @@ impl ParseArgFromStr for std::net::SocketAddrV6 {
 impl ParseArgFromStr for bool {
     fn describe_type<W: fmt::Write>(mut writer: W) -> fmt::Result {
         write!(writer, "a boolean (true or false)")
+    }
+}
+
+impl ParseArgFromStr for char {
+    fn describe_type<W: fmt::Write>(mut writer: W) -> fmt::Result {
+        write!(writer, "a single character (Unicode code point)")
     }
 }
 
@@ -656,5 +988,27 @@ mod tests {
             Err(ValueError::MissingValue) => panic!("Value shouldn't be missing"),
             Err(ValueError::InvalidValue(_)) => (),
         }
+    }
+
+    #[test]
+    fn min_max() {
+        fn check<T: Into<u128>>(max: T) {
+            let max = max.into();
+            assert_eq!(super::max_from_len(std::mem::size_of::<T>()), max);
+        }
+
+        fn check_signed<T: Into<i128>>(min: T, max: T) {
+            let min = min.into();
+            let max = max.into();
+            assert_eq!(super::min_from_len_signed(std::mem::size_of::<T>()), min);
+            assert_eq!(super::max_from_len_signed(std::mem::size_of::<T>()), max);
+        }
+
+        check(u8::MAX);
+        check(u16::MAX);
+        check(u128::MAX);
+        check_signed(i8::MIN, i8::MAX);
+        check_signed(i16::MIN, i16::MAX);
+        check_signed(i128::MIN, i128::MAX);
     }
 }
