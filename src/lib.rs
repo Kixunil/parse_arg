@@ -375,7 +375,6 @@ fn iter_short_internal<'a>(arg: &'a OsStr) -> Option<ShortIter<'a>> {
     if *arg_iter.next()? == b'-' {
         Some(ShortIter {
             iter: arg_iter,
-            _force_private: (),
         })
     } else {
         None
@@ -393,7 +392,6 @@ fn iter_short_internal<'a>(arg: &'a OsStr) -> Option<ShortIter<'a>> {
         if *iter.peek()? != u16::from(b'-') {
             Some(ShortIter {
                 iter,
-                _force_private: (),
             })
         } else {
             None
@@ -406,13 +404,13 @@ fn iter_short_internal<'a>(arg: &'a OsStr) -> Option<ShortIter<'a>> {
 /// An iterator of short options.
 ///
 /// See the documentation for `iter_short` for more details.
+// In case the platform is neither unix nor windows, we want to keep this private
+#[non_exhaustive]
 pub struct ShortIter<'a> {
     #[cfg(unix)]
     iter: std::slice::Iter<'a, u8>,
     #[cfg(windows)]
     iter: std::iter::Peekable<std::os::windows::ffi::EncodeWide<'a>>,
-    // In case the platform is neither unix nor windows, we want to keep this private
-    _force_private: (),
 }
 
 impl<'a> Iterator for ShortIter<'a> {
