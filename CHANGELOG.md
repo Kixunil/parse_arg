@@ -1,6 +1,6 @@
 # Significant changes to the crate
 
-## Unreleased
+## 0.1.5
 
 * Various documentation and internal cleanups
 * Implemented a bunch of `std` types: pointers, cells, locks, integers, `char`
