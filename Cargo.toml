@@ -9,3 +9,4 @@ keywords = ["arguments", "parsing", "string", "osstring", "osstr"]
 categories = ["command-line-interface", "parsing", "rust-patterns"]
 license = "MITNFA"
 maintenance = { status = "as-is" }
+rust-version = "1.63"
