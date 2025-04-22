@@ -554,8 +554,8 @@ impl_unsigned! { u8, u16, u32, u64, u128, usize }
 impl_signed! { i8, i16, i32, i64, i128, isize }
 impl_non_zero_unsigned! { NonZeroU8, NonZeroU16, NonZeroU32, NonZeroU64, NonZeroU128, NonZeroUsize }
 impl_non_zero_signed! { NonZeroI8, NonZeroI16, NonZeroI32, NonZeroI64, NonZeroI128, NonZeroIsize }
-impl_atomic_unsigned! { AtomicU8 => "8", AtomicU16 => "16", AtomicU32 => "32", AtomicU64 => "64", AtomicU128 => "128", AtomicUsize => "ptr" }
-impl_atomic_signed! { AtomicI8 => "8", AtomicI16 => "16", AtomicI32 => "32", AtomicI64 => "64", AtomicI128 => "128", AtomicIsize => "ptr" }
+impl_atomic_unsigned! { AtomicU8 => "8", AtomicU16 => "16", AtomicU32 => "32", AtomicU64 => "64", AtomicUsize => "ptr" }
+impl_atomic_signed! { AtomicI8 => "8", AtomicI16 => "16", AtomicI32 => "32", AtomicI64 => "64", AtomicIsize => "ptr" }
 impl_float! { f32, f64 }
 
 impl ParseArgFromStr for std::net::IpAddr {
