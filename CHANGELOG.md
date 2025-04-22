@@ -1,5 +1,10 @@
 # Significant changes to the crate
 
+## 1.0.1
+
+* Removed broken 128-bit atomics - this is not breaking because the crate was always broken on targets that had 128-bit atomics in nightly
+* Added `rust-version` field to manifest
+
 ## 1.0.0
 
 * Deleted the helper functions to keep the crate focused
